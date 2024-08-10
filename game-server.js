@@ -2,11 +2,9 @@ const http = require('http');
 const socketIo = require('socket.io');
 const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
+const axios = require('axios'); // 用於發送 HTTP 請求
 
 // 秘鑰，用於驗證 JWT token
-//const secretKey = 'your-secret-key';
-
-// 將字符串密鑰轉換為 KeyObject
 const secretKey = crypto.createSecretKey(Buffer.from('your_jwt_secret'));
 
 // 創建 HTTP 伺服器
@@ -24,6 +22,9 @@ io.on('connection', (socket) => {
             const decoded = jwt.verify(token, secretKey);
             console.log('Client authenticated:', decoded);
 
+            // 從解碼的 token 中提取 username
+            const username = decoded.username;
+
             // 驗證成功後，開始每5秒傳遞 ping/pong 消息
             const intervalId = setInterval(() => {
                 socket.emit('ping');
@@ -31,8 +32,21 @@ io.on('connection', (socket) => {
             }, 5000);
 
             // 監聽客戶端的 pong 消息
-            socket.on('pong', () => {
+            socket.on('pong', async () => {
                 console.log('Received: pong');
+
+                // 向 Instance Server 發送攻擊請求的異步函數
+                async function sendAttackRequest() {
+                    try {
+                        await axios.post('http://localhost:4050/attack', { username });
+                        console.log(`${username} Attack request sent to Instance Server`);
+                    } catch (error) {
+                        console.error('Failed to send attack request:', error.message);
+                    }
+                }
+
+                // 呼叫異步函數
+                sendAttackRequest();
             });
 
             // 當客戶端斷開連接時清除間隔計時器

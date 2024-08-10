@@ -5,27 +5,51 @@ const socket = io('http://localhost:3000');
 
 // 當連接成功時執行
 socket.on('connect', () => {
-  console.log('Connected to Gate Server');
+    console.log('Connected to Gate Server');
 
-  // 模擬用戶登入
-  socket.emit('login', { username: 'your-username', password: 'your-password' });
+    // 模擬用戶登入
+    socket.emit('login', { username: 'your-username', password: 'your-password' });
 });
 
-// 當收到登入成功的消息時執行
+// 在 loginSuccess 事件中連接到 Game Server
 socket.on('loginSuccess', ({ token, gameServerUrl }) => {
-  console.log('Login successful!');
-  console.log('Token:', token);
-  console.log('Game Server URL:', gameServerUrl);
-  
-  // 在這裡，你可以選擇繼續連接到 Game Server
+    console.log('Login successful!');
+    console.log('Token:', token);
+    console.log('Game Server URL:', gameServerUrl);
+
+    // 連接到 Game Server
+    const gameSocket = io(gameServerUrl);
+
+    // 當連接成功時，發送 token 進行驗證
+    gameSocket.on('connect', () => {
+        console.log('Connected to Game Server');
+        gameSocket.emit('authenticate', { token });
+    });
+
+    // 監聽 ping 消息並回應 pong
+    gameSocket.on('ping', () => {
+        console.log('Received: ping');
+        gameSocket.emit('pong');
+    });
+
+    // 處理驗證錯誤
+    gameSocket.on('authError', (error) => {
+        console.log('Authentication failed:', error.message);
+    });
+
+    // 處理斷開連接
+    gameSocket.on('disconnect', () => {
+        console.log('Disconnected from Game Server');
+    });
 });
+
 
 // 當收到登入失敗的消息時執行
 socket.on('loginError', (error) => {
-  console.log('Login failed:', error.message);
+    console.log('Login failed:', error.message);
 });
 
 // 當斷開連接時執行
 socket.on('disconnect', () => {
-  console.log('Disconnected from Gate Server');
+    console.log('Disconnected from Gate Server');
 });

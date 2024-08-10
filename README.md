@@ -21,7 +21,7 @@ This project is a scalable architecture designed to support a multiplayer game w
   - Pings the client every 5 seconds to maintain connection and trigger in-game events.
   - Sends attack requests to the Instance Server when a player initiates an attack.
 
-### 3. Instance Server (Currently referred to as "副本Server")
+### 3. Instance Server
 - **Purpose**: Processes specific in-game events like monster attacks, calculates outcomes, and updates game states.
 - **Technology Stack**: Socket.IO, Express.js (for future extensions)
 - **Details**: 

@@ -57,7 +57,7 @@ The Game Server only handles the request and reward processing for monster attac
 ### Installation
 1. Clone the repository:
    ```bash
-   git clone https://github.com/taasbaba/HiConDesign/.git
+   git clone https://github.com/taasbaba/HiConDesign.git
    cd HiConDesign
    ```
    

@@ -47,17 +47,14 @@ const lastAttackTime = new Map();
 
 // 當有客戶端連接時執行
 io.on('connection', (socket) => {
-    console.log('A client connected to Game Server');
 
     // 監聽客戶端發送的驗證請求
     socket.on('authenticate', ({ token }) => {
         try {
             // 驗證 JWT token
             const decoded = jwt.verify(token, secretKey);
-            console.log('Client authenticated:', decoded);
-
-            // 從解碼的 token 中提取 username
             const username = decoded.username;
+            console.log(`[${serverName}] Client authenticated: ${username}`, decoded);
 
             // 監聽客戶端的 attackMonster 事件
             socket.on('attackMonster', () => {
@@ -70,25 +67,25 @@ io.on('connection', (socket) => {
                         code: 429, // 常見的 HTTP 429 錯誤碼，表示請求過於頻繁
                         message: 'Request too frequent'
                     });
-                    console.log(`Request too frequent from ${username}`);
+                    console.log(`[${serverName}] Request too frequent from ${username}`);
                 } else {
                     // 更新上次攻擊時間
                     lastAttackTime.set(username, currentTime);
 
                     // 通過 Socket.IO 向 Instance Server 發送 attackMonster 事件
                     instanceServerSocket.emit('attackMonster', { username });
-                    console.log(`${username} Attack request sent to Instance Server`);
+                    console.log(`[${serverName}] ${username} Attack request sent to Instance Server`);
                 }
             });
 
             // 當客戶端斷開連接時清除用戶的上次攻擊時間記錄
             socket.on('disconnect', () => {
                 lastAttackTime.delete(username);
-                console.log('Client disconnected from Game Server');
+                console.log(`[${serverName}] Client ${username} disconnected from Game Server`);
             });
 
         } catch (error) {
-            console.log('Authentication failed:', error.message);
+            console.log(`[${serverName}] Authentication failed for client: ${error.message}`);
             socket.emit('authError', { message: 'Invalid token' });
             socket.disconnect(); // 驗證失敗後斷開連接
         }
@@ -98,5 +95,5 @@ io.on('connection', (socket) => {
 // 啟動伺服器，使用配置文件中的 URL 端口
 const port = gameServerConfig.url.split(':').pop();
 server.listen(port, () => {
-    console.log(`${serverName} is running on port ${port}`);
+    console.log(`[${serverName}] is running on port ${port}`);
 });

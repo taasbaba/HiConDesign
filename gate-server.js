@@ -5,6 +5,7 @@ const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
 const fs = require('fs');
 const yaml = require('js-yaml');
+const { validateAndConvertToUint64 } = require('./utils/validation');
 
 // 讀取配置文件
 const config = yaml.load(fs.readFileSync('./server-config.yml', 'utf8'));
@@ -58,10 +59,14 @@ io.on('connection', (socket) => {
             const token = jwt.sign({ username }, secretKey, { expiresIn: '1h' });
             console.log('Token generated:', token);
 
-            // 對 username 取 2 餘數來選擇 Game Server
-            const serverChoice = username.length % 2 === 0 ? gameServers.game1 : gameServers.game2;
+            // 驗證並轉換 username
+            const usernameUint64 = validateAndConvertToUint64(username);
+
+            // 取 2 的餘數來選擇 Game Server URL
+            const serverChoice = usernameUint64 % BigInt(2) === BigInt(0) ? gameServers.game1 : gameServers.game2;
             console.log(`User ${username} assigned to ${serverChoice}`);
 
+            // 傳遞選擇的 Game Server URL
             socket.emit('loginSuccess', { token, gameServerUrl: serverChoice });
         } catch (error) {
             console.error('Error generating token:', error);

@@ -5,11 +5,11 @@ const gateServer = spawn('node', ['gate-server.js'], { stdio: 'inherit' });
 console.log('Gate Server is running...');
 
 // 啟動第一個 Game Server
-const gameServer1 = spawn('node', ['game-server.js', 'game-1'], { stdio: 'inherit' });
+const gameServer1 = spawn('node', ['game-server/game-server.js', 'game-1'], { stdio: 'inherit' });
 console.log('Game Server 1 is running...');
 
 // 啟動第二個 Game Server
-const gameServer2 = spawn('node', ['game-server.js', 'game-2'], { stdio: 'inherit' });
+const gameServer2 = spawn('node', ['game-server/game-server.js', 'game-2'], { stdio: 'inherit' });
 console.log('Game Server 2 is running...');
 
 // 啟動 Instance Server

@@ -31,7 +31,7 @@ const attackQueue = [];
 function processNextAttack() {
     if (attackQueue.length === 0) return;
 
-    const { username, damage, attackId, callback } = attackQueue.shift();
+    const { username, damage, callback } = attackQueue.shift();
 
     console.log(`${username} wants to attack monster HP: ${monsterHp} alive: ${monsterAlive}`);
     if (monsterAlive) {
@@ -39,9 +39,9 @@ function processNextAttack() {
         console.log(`${username} attacked the monster. Pending HP: ${monsterHp}`);
 
         // 立即通過回調函數回傳結果給 Game Server
-        callback({ attackId, code: 0, hp: monsterHp });
+        callback({ code: 0, hp: monsterHp });
 
-        console.log(`Sent attackResult to ${username}, attackId: ${attackId}, HP: ${monsterHp}`);
+        console.log(`Sent attackResult to ${username}, HP: ${monsterHp}`);
         
         if (monsterHp <= 0) {
             handleMonsterDeath(username); // 處理怪獸死亡
@@ -50,7 +50,6 @@ function processNextAttack() {
         console.log('Attack ignored. No monster alive currently.');
         // 回傳錯誤結果給 Game Server
         callback({
-            attackId,
             code: 4001, // 自訂的錯誤代碼，表示沒有怪獸存活
             message: 'No monster alive currently.'
         });
@@ -95,9 +94,9 @@ io.on('connection', (socket) => {
     console.log('A client connected to Instance Server');
 
     // 監聽來自 Game Server 的攻擊請求
-    socket.on('attackMonster', ({ username, damage = 3, attackId }, callback) => {
+    socket.on('attackMonster', ({ username, damage = 3 }, callback) => {
         // 將攻擊請求加入隊列
-        attackQueue.push({ username, damage, attackId, callback });
+        attackQueue.push({ username, damage, callback });
 
         // 如果隊列中只有這一個請求，立即處理它
         if (attackQueue.length === 1) {

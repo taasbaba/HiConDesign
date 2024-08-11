@@ -94,19 +94,16 @@ io.on('connection', (socket) => {
                     // 更新上次攻擊時間
                     lastAttackTime.set(username, currentTime);
             
-                    // 生成一個唯一的 attackId 來識別這次攻擊
-                    const attackId = crypto.randomUUID();
-            
                     // 通過 Socket.IO 向 Instance Server 發送 attackMonster 事件，並在回應後直接回傳結果給 client
-                    instanceServerSocket.emit('attackMonster', { username, attackId }, (response) => {
+                    instanceServerSocket.emit('attackMonster', { username }, (response) => {
                         const { hp, code, message } = response;
-                        console.log(`[${serverName}] Received response for username: ${username}, attackId: ${attackId}, Remaining HP: ${hp}, Code: ${code}, Message: ${message}`);
+                        console.log(`[${serverName}] Received response for username: ${username}, Remaining HP: ${hp}, Code: ${code}, Message: ${message}`);
                         
                         // 回傳結果給 client
                         callback({ hp, code, message });
                     });
             
-                    console.log(`[${serverName}] ${username} Attack request sent to Instance Server with attackId: ${attackId}`);
+                    console.log(`[${serverName}] ${username} Attack request sent to Instance Server`);
                 }
             });
 

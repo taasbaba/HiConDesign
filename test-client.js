@@ -34,6 +34,9 @@ function createBot(username, password) {
         console.log(`${username} Token:`, token);
         console.log(`${username} Game Server URL:`, gameServerUrl);
 
+        // 斷開 Gate Server 的連接
+        socket.disconnect();
+
         // 連接到 Game Server
         const gameSocket = io(gameServerUrl);
         sockets.push(gameSocket);  // 將 gameSocket 加入到 sockets 陣列中
@@ -63,6 +66,29 @@ function createBot(username, password) {
             }
         });
 
+        // 處理來自伺服器的 attackResult
+        gameSocket.on('attackResult', (data) => {
+            console.log(`${username} received attack result: Remaining HP: ${data.hp}`);
+        });
+
+        // 監聽怪獸廣播事件
+        gameSocket.on('monsterAppeared', (data) => {
+            console.log(`${username} received: Monster appeared with HP: ${data.hp}`);
+        });
+
+        gameSocket.on('monsterStatus', (data) => {
+            console.log(`${username} received: Monster status updated. Remaining HP: ${data.hp}`);
+        });
+
+        gameSocket.on('monsterDied', (data) => {
+            console.log(`${username} received: Monster died. Killer: ${data.killer}, Time: ${data.deathTime}`);
+        });
+
+        // 處理來自伺服器的 attackMonster 錯誤
+        gameSocket.on('monsterAttackError', (error) => {
+            console.log(`${username} received error: ${error.message} (Code: ${error.code})`);
+        });
+
         // 處理斷開連接
         gameSocket.on('disconnect', () => {
             console.log(`${username} disconnected from Game Server`);
@@ -73,6 +99,9 @@ function createBot(username, password) {
     // 當收到登入失敗的消息時執行
     socket.on('loginError', (error) => {
         console.log(`${username} login failed:`, error.message);
+        
+        // 斷開 Gate Server 的連接
+        socket.disconnect();
     });
 
     // 當斷開連接時執行

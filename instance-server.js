@@ -20,14 +20,90 @@ const io = socketIo(server, {
     pingTimeout: instanceServerConfig.pingTimeout     // 讀取 ping 超時時間
 });
 
+// 設置怪獸初始 HP
+let monsterHp = 10;
+let monsterAlive = true;
+let pendingHpUpdate = false; // 用來標記是否有未廣播的更新
+
+// 攻擊隊列
+const attackQueue = [];
+
+// 處理攻擊請求的函數
+function processNextAttack() {
+    if (attackQueue.length === 0) return;
+
+    const { username, damage, socket, attackId } = attackQueue.shift();
+
+    console.log(`${username} wants to attack monster HP: ${monsterHp} alive: ${monsterAlive}`);
+    if (monsterAlive) {
+        monsterHp = Math.max(monsterHp - damage, 0);
+        console.log(`${username} attacked the monster. Pending HP: ${monsterHp}`);
+        pendingHpUpdate = true; // 標記有更新等待廣播
+
+        // 立即向 Game Server 回傳剩餘血量
+        socket.emit('attackResult', { attackId, hp: monsterHp });
+        console.log(`Sent attackResult to ${username}, attackId:${attackId} HP: ${monsterHp}`);
+        if (monsterHp <= 0) {
+            handleMonsterDeath(username); // 處理怪獸死亡
+        }
+    } else {
+        console.log('Attack ignored. No monster alive currently.');
+        socket.emit('monsterAttackError', {
+            attackId,
+            code: 4001, // 自訂的錯誤代碼，表示沒有怪獸存活
+            message: 'No monster alive currently.'
+        });
+    }
+
+    // 處理下一個攻擊請求
+    processNextAttack();
+}
+
+// 怪獸出現的函數
+function spawnMonster() {
+    monsterHp = 10;
+    monsterAlive = true;
+    pendingHpUpdate = false; // 重置標記
+    console.log(`A new monster has appeared with full HP (${monsterHp}).`);
+    io.emit('monsterAppeared', { hp: monsterHp }); // 廣播怪獸出現事件
+}
+
+// 怪獸死亡處理函數
+function handleMonsterDeath(username) {
+    monsterAlive = false;
+    const deathTime = new Date();
+    console.log(`Monster has been killed by ${username} at ${deathTime}.`);
+    io.emit('monsterDied', {
+        killer: username,
+        deathTime: deathTime.toISOString()
+    }); // 廣播怪獸死亡事件
+
+    // 5 秒後生成一隻新的怪獸
+    setTimeout(spawnMonster, 5000);
+}
+
+// 定期廣播怪獸狀態更新
+setInterval(() => {
+    if (pendingHpUpdate && monsterAlive) {
+        io.emit('monsterStatus', { hp: monsterHp });
+        pendingHpUpdate = false; // 重置標記
+        console.log(`Broadcasting monster HP update: ${monsterHp}`);
+    }
+}, 1000); // 每秒廣播一次
+
 // 當有客戶端連接時執行
 io.on('connection', (socket) => {
     console.log('A client connected to Instance Server');
 
     // 監聽來自 Game Server 的攻擊請求
-    socket.on('attack', ({ username }) => {
-        console.log(`${username} 發動了攻擊`);
-        // 在這裡進行攻擊邏輯計算
+    socket.on('attackMonster', ({ username, damage = 3, attackId }) => {
+        // 將攻擊請求加入隊列
+        attackQueue.push({ username, damage, socket, attackId });
+
+        // 如果隊列中只有這一個請求，立即處理它
+        if (attackQueue.length === 1) {
+            processNextAttack();
+        }
     });
 
     // 處理斷開連接的事件
@@ -40,4 +116,7 @@ io.on('connection', (socket) => {
 const port = instanceServerConfig.url.split(':').pop();
 server.listen(port, () => {
     console.log(`Instance Server is running on port ${port}`);
+
+    // 伺服器啟動時生成第一隻怪獸
+    spawnMonster();
 });

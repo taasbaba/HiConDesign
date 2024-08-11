@@ -1,6 +1,6 @@
 const http = require('http');
 const socketIo = require('socket.io');
-const socketIoClient = require('socket.io-client'); // 引入 socket.io-client
+const socketIoClient = require('socket.io-client'); // 引入 socket.io-client，用來連接到 Instance Server
 const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
 const fs = require('fs');
@@ -45,18 +45,21 @@ const secretKey = crypto.createSecretKey(Buffer.from('your_jwt_secret'));
 // 記錄每個用戶的上次攻擊時間
 const lastAttackTime = new Map();
 
+// 保存每次攻擊請求的映射，根據 attackId 保存對應的 socket
+const pendingAttacks = new Map();
+
 // 當有客戶端連接時執行
 io.on('connection', (socket) => {
 
     // 監聽客戶端發送的驗證請求
     socket.on('authenticate', ({ token }) => {
         try {
-            // 驗證 JWT token
+            // 驗證 JWT token 並提取 username
             const decoded = jwt.verify(token, secretKey);
             const username = decoded.username;
             console.log(`[${serverName}] Client authenticated: ${username}`, decoded);
 
-            // 監聽客戶端的 attackMonster 事件
+            // 監聽來自玩家的 attackMonster 事件
             socket.on('attackMonster', () => {
                 const currentTime = Date.now();
 
@@ -72,11 +75,54 @@ io.on('connection', (socket) => {
                     // 更新上次攻擊時間
                     lastAttackTime.set(username, currentTime);
 
+                    // 生成一個唯一的 attackId 來識別這次攻擊
+                    const attackId = crypto.randomUUID();
+
+                    // 保存這次攻擊對應的 socket
+                    pendingAttacks.set(attackId, socket);
+
                     // 通過 Socket.IO 向 Instance Server 發送 attackMonster 事件
-                    instanceServerSocket.emit('attackMonster', { username });
-                    console.log(`[${serverName}] ${username} Attack request sent to Instance Server`);
+                    instanceServerSocket.emit('attackMonster', { username, attackId });
+
+                    console.log(`[${serverName}] ${username} Attack request sent to Instance Server with attackId: ${attackId}`);
                 }
             });
+
+            // 監聽 Instance Server 的 attackResult 事件
+            if (!instanceServerSocket.listeners('attackResult').length) {
+                instanceServerSocket.on('attackResult', (response) => {
+                    const { attackId, hp } = response;
+                    const clientSocket = pendingAttacks.get(attackId);
+
+                    if (clientSocket) {
+                        console.log(`[${serverName}] Received attackResult from Instance Server for ${attackId}, Remaining HP: ${hp}`);
+                        clientSocket.emit('attackResult', { hp }); // 將剩餘 HP 回傳給對應的 client
+                        pendingAttacks.delete(attackId); // 刪除已處理的攻擊
+                    }
+                });
+            }
+
+            // 監聽 Instance Server 廣播的怪獸事件
+            if (!instanceServerSocket.listeners('monsterStatus').length) {
+                instanceServerSocket.on('monsterStatus', (data) => {
+                    console.log(`[${serverName}] Monster status updated. Remaining HP: ${data.hp}`);
+                    io.emit('monsterStatus', data);
+                });
+            }
+
+            if (!instanceServerSocket.listeners('monsterAppeared').length) {
+                instanceServerSocket.on('monsterAppeared', (data) => {
+                    console.log(`[${serverName}] Monster appeared with HP: ${data.hp}`);
+                    io.emit('monsterAppeared', data);
+                });
+            }
+
+            if (!instanceServerSocket.listeners('monsterDied').length) {
+                instanceServerSocket.on('monsterDied', (data) => {
+                    console.log(`[${serverName}] Monster died. Killer: ${data.killer}, Time: ${data.deathTime}`);
+                    io.emit('monsterDied', data);
+                });
+            }
 
             // 當客戶端斷開連接時清除用戶的上次攻擊時間記錄
             socket.on('disconnect', () => {
@@ -85,6 +131,7 @@ io.on('connection', (socket) => {
             });
 
         } catch (error) {
+            // 處理驗證失敗的情況
             console.log(`[${serverName}] Authentication failed for client: ${error.message}`);
             socket.emit('authError', { message: 'Invalid token' });
             socket.disconnect(); // 驗證失敗後斷開連接

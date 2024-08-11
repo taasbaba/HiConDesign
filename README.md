@@ -15,7 +15,7 @@ This project is a scalable architecture designed to support a multiplayer game w
 
 ### 2. Game Server
 - **Purpose**: Manages general game logic, processes player actions, and coordinates with the Instance Server for specific tasks like monster attacks.
-- **Technology Stack**: Socket.IO, JWT, Axios (for HTTP requests to other services)
+- **Technology Stack**: Socket.IO, JWT
 - **Details**: 
   - Handles authenticated player connections and manages game state.
   - Pings the client every 5 seconds to maintain connection and trigger in-game events.
@@ -23,7 +23,7 @@ This project is a scalable architecture designed to support a multiplayer game w
 
 ### 3. Instance Server
 - **Purpose**: Processes specific in-game events like monster attacks, calculates outcomes, and updates game states.
-- **Technology Stack**: Socket.IO, Express.js (for future extensions)
+- **Technology Stack**: Socket.IO
 - **Details**: 
   - Receives attack requests from the Game Server.
   - Processes the logic for each attack and updates the monster's health status.
@@ -39,10 +39,6 @@ The future architecture aims to include additional components to enhance scalabi
 - **Responsibilities**:
   - Store temporary game state information in Redis for quick access.
   - Persist important game data to a database for long-term storage and analysis.
-
-### 2. Additional Game Servers
-- **Purpose**: Scale the game horizontally by adding more Game Servers as needed.
-- **Load Balancing**: Managed by the Gate Server to distribute players evenly across available Game Servers.
 
 ## Monster Attack Mechanism
 

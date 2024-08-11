@@ -1,14 +1,32 @@
-// Gate Server 內的代碼示例
 const express = require('express');
 const http = require('http');
 const socketIo = require('socket.io');
 const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
+const fs = require('fs');
+const yaml = require('js-yaml');
+
+// 讀取配置文件
+const config = yaml.load(fs.readFileSync('./server-config.yml', 'utf8'));
 
 const app = express();
 const server = http.createServer(app);
 const io = socketIo(server);
-const gameServerUrl = 'http://localhost:4000'; // 假設 Game Server 運行在這個地址
+
+// 獲取全局設置
+const environment = config.environment;
+
+// 找到這台服務器的配置
+const gateServerConfig = config.servers.find(server => server.name === 'gate');
+if (!gateServerConfig) {
+    throw new Error('Gate Server configuration not found');
+}
+
+// 預先讀取 Game Server URLs
+const gameServers = {
+    game1: config.servers.find(server => server.name === 'game-1').url,
+    game2: config.servers.find(server => server.name === 'game-2').url
+};
 
 // 將字符串密鑰轉換為 KeyObject
 const secretKey = crypto.createSecretKey(Buffer.from('your_jwt_secret'));
@@ -19,22 +37,31 @@ io.on('connection', (socket) => {
     socket.on('login', ({ username, password }) => {
         console.log('Login attempt:', { username, password });
 
-        if (username === 'your-username' && password === 'your-password') {
-            console.log('Credentials are valid, generating token...');
-
-            try {
-                const token = jwt.sign({ username }, secretKey, { expiresIn: '1h' });
-                console.log('Token generated:', token);
-
-                socket.emit('loginSuccess', { token, gameServerUrl });
-            } catch (error) {
-                console.error('Error generating token:', error);
-                socket.emit('loginError', { message: 'Error generating token' });
+        // 檢查環境並決定是否驗證密碼
+        if (environment === 'prod') {
+            if (username === 'your-username' && password === 'your-password') {
+                console.log('Credentials are valid, generating token...');
+            } else {
+                console.log('Invalid credentials');
+                socket.emit('loginError', { message: 'Invalid credentials' });
+                return;
             }
-
         } else {
-            console.log('Invalid credentials');
-            socket.emit('loginError', { message: 'Invalid credentials' });
+            console.log('Development mode: Skipping password validation...');
+        }
+
+        try {
+            const token = jwt.sign({ username }, secretKey, { expiresIn: '1h' });
+            console.log('Token generated:', token);
+
+            // 對 username 取 2 餘數來選擇 Game Server
+            const serverChoice = username.length % 2 === 0 ? gameServers.game1 : gameServers.game2;
+            console.log(`User ${username} assigned to ${serverChoice}`);
+
+            socket.emit('loginSuccess', { token, gameServerUrl: serverChoice });
+        } catch (error) {
+            console.error('Error generating token:', error);
+            socket.emit('loginError', { message: 'Error generating token' });
         }
     });
 
@@ -43,7 +70,6 @@ io.on('connection', (socket) => {
     });
 });
 
-
-server.listen(3000, () => {
-    console.log('Gate Server running on port 3000');
+server.listen(gateServerConfig.url.split(':').pop(), () => {
+    console.log(`Gate Server running on ${gateServerConfig.url} in ${environment} mode`);
 });

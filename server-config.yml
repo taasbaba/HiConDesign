@@ -1,0 +1,13 @@
+# 全局設置
+environment: "dev" # or "prod"
+
+# 服務器配置
+servers:
+  - name: "gate"
+    url: "http://localhost:3000"
+  - name: "game-1"
+    url: "http://localhost:4000"
+  - name: "game-2"
+    url: "http://localhost:4001"
+  - name: "instance"
+    url: "http://localhost:4050"

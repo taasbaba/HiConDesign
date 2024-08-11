@@ -1,5 +1,16 @@
 const http = require('http');
 const socketIo = require('socket.io');
+const fs = require('fs');
+const yaml = require('js-yaml');
+
+// 讀取配置文件
+const config = yaml.load(fs.readFileSync('./server-config.yml', 'utf8'));
+
+// 找到這台 Instance Server 的配置
+const instanceServerConfig = config.servers.find(server => server.name === 'instance');
+if (!instanceServerConfig) {
+    throw new Error('Instance Server configuration not found');
+}
 
 // 創建 HTTP 伺服器
 const server = http.createServer();
@@ -21,8 +32,8 @@ io.on('connection', (socket) => {
     });
 });
 
-// 啟動伺服器
-const PORT = 4050;
-server.listen(PORT, () => {
-    console.log(`Instance Server is running on port ${PORT}`);
+// 啟動伺服器，使用配置文件中的 URL 端口
+const port = instanceServerConfig.url.split(':').pop();
+server.listen(port, () => {
+    console.log(`Instance Server is running on port ${port}`);
 });

@@ -3,16 +3,39 @@ const socketIo = require('socket.io');
 const socketIoClient = require('socket.io-client'); // 引入 socket.io-client
 const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
+const fs = require('fs');
+const yaml = require('js-yaml');
 
-// 秘鑰，用於驗證 JWT token
-const secretKey = crypto.createSecretKey(Buffer.from('your_jwt_secret'));
+// 讀取配置文件
+const config = yaml.load(fs.readFileSync('./server-config.yml', 'utf8'));
+
+// 獲取全局設置
+const environment = config.environment;
+
+// 根據啟動時的參數確定這是第幾個 Game Server
+const serverName = process.argv[2]; // 從命令行參數獲取 server 名稱
+
+// 找到這台 Game Server 的配置
+const gameServerConfig = config.servers.find(server => server.name === serverName);
+if (!gameServerConfig) {
+    throw new Error(`${serverName} configuration not found`);
+}
+
+// 找到 Instance Server 的配置
+const instanceServerConfig = config.servers.find(server => server.name === 'instance');
+if (!instanceServerConfig) {
+    throw new Error('Instance Server configuration not found');
+}
 
 // 創建 HTTP 伺服器
 const server = http.createServer();
 const io = socketIo(server);
 
 // 創建與 Instance Server 的 Socket.IO 客戶端連接
-const instanceServerSocket = socketIoClient.connect('http://localhost:4050');
+const instanceServerSocket = socketIoClient.connect(instanceServerConfig.url);
+
+// 秘鑰，用於驗證 JWT token
+const secretKey = crypto.createSecretKey(Buffer.from('your_jwt_secret'));
 
 // 當有客戶端連接時執行
 io.on('connection', (socket) => {
@@ -57,8 +80,8 @@ io.on('connection', (socket) => {
     });
 });
 
-// 啟動伺服器
-const PORT = 4000;
-server.listen(PORT, () => {
-    console.log(`Game Server is running on port ${PORT}`);
+// 啟動伺服器，使用配置文件中的 URL 端口
+const port = gameServerConfig.url.split(':').pop();
+server.listen(port, () => {
+    console.log(`${serverName} is running on port ${port}`);
 });

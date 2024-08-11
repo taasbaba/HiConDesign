@@ -79,7 +79,7 @@ The Game Server only handles the request and reward processing for monster attac
   ```
 - **Game Server**:
   ```
-  node game-server.js
+  node game-server.js game-1 (for `game-1`)
   ```
 - **Instance Server**:
   ```

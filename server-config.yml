@@ -1,13 +1,32 @@
 # 全局設置
-environment: "dev" # or "prod"
+environment: "dev" # 或 "prod"
 
 # 服務器配置
 servers:
   - name: "gate"
     url: "http://localhost:3000"
+    # 設定 ping 間隔時間（單位：毫秒）
+    pingInterval: 25000 
+    # 設定 ping 超時時間（單位：毫秒）
+    pingTimeout: 5000    
+
   - name: "game-1"
     url: "http://localhost:4000"
+    # 設定 ping 間隔時間（單位：毫秒）
+    pingInterval: 25000 
+    # 設定 ping 超時時間（單位：毫秒）
+    pingTimeout: 5000    
+
   - name: "game-2"
     url: "http://localhost:4001"
+    # 設定 ping 間隔時間（單位：毫秒）
+    pingInterval: 25000 
+    # 設定 ping 超時時間（單位：毫秒）
+    pingTimeout: 5000    
+
   - name: "instance"
     url: "http://localhost:4050"
+    # 設定 ping 間隔時間（單位：毫秒）
+    pingInterval: 25000 
+    # 設定 ping 超時時間（單位：毫秒）
+    pingTimeout: 5000    

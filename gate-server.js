@@ -9,10 +9,6 @@ const yaml = require('js-yaml');
 // 讀取配置文件
 const config = yaml.load(fs.readFileSync('./server-config.yml', 'utf8'));
 
-const app = express();
-const server = http.createServer(app);
-const io = socketIo(server);
-
 // 獲取全局設置
 const environment = config.environment;
 
@@ -21,6 +17,14 @@ const gateServerConfig = config.servers.find(server => server.name === 'gate');
 if (!gateServerConfig) {
     throw new Error('Gate Server configuration not found');
 }
+
+const app = express();
+const server = http.createServer(app);
+// 初始化 Socket.IO 並應用心跳機制設置
+const io = socketIo(server, {
+    pingInterval: gateServerConfig.pingInterval,  // 讀取 ping 間隔時間
+    pingTimeout: gateServerConfig.pingTimeout     // 讀取 ping 超時時間
+});
 
 // 預先讀取 Game Server URLs
 const gameServers = {

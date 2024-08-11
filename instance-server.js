@@ -2,6 +2,7 @@ const http = require('http');
 const socketIo = require('socket.io');
 const fs = require('fs');
 const yaml = require('js-yaml');
+const ERROR_CODES = require('./utils/errorCodes'); // 引入 errorCodes.js
 
 // 讀取配置文件
 const config = yaml.load(fs.readFileSync('./server-config.yml', 'utf8'));
@@ -39,7 +40,7 @@ function processNextAttack() {
         console.log(`${username} attacked the monster. Pending HP: ${monsterHp}`);
 
         // 立即通過回調函數回傳結果給 Game Server
-        callback({ code: 0, hp: monsterHp });
+        callback({ code: ERROR_CODES.SUCCESS.code, hp: monsterHp });
 
         console.log(`Sent attackResult to ${username}, HP: ${monsterHp}`);
         
@@ -49,10 +50,7 @@ function processNextAttack() {
     } else {
         console.log('Attack ignored. No monster alive currently.');
         // 回傳錯誤結果給 Game Server
-        callback({
-            code: 4001, // 自訂的錯誤代碼，表示沒有怪獸存活
-            message: 'No monster alive currently.'
-        });
+        callback(ERROR_CODES.MONSTER_NOT_ALIVE);
     }
 
     // 處理下一個攻擊請求

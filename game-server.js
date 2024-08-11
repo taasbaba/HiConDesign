@@ -5,6 +5,7 @@ const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
 const fs = require('fs');
 const yaml = require('js-yaml');
+const ERROR_CODES = require('./utils/errorCodes'); // 引入 errorCodes.js
 
 // 讀取配置文件
 const config = yaml.load(fs.readFileSync('./server-config.yml', 'utf8'));
@@ -84,11 +85,7 @@ io.on('connection', (socket) => {
                 // 檢查攻擊間隔時間
                 if (lastAttackTime.has(username) && currentTime - lastAttackTime.get(username) < 1000) {
                     // 如果間隔時間小於 1 秒，回傳錯誤信息給 client
-                    const errorResponse = {
-                        code: 429, // 常見的 HTTP 429 錯誤碼，表示請求過於頻繁
-                        message: 'Request too frequent'
-                    };
-                    callback(errorResponse);
+                    callback(ERROR_CODES.REQUEST_TOO_FREQUENT);
                     console.log(`[${serverName}] Request too frequent from ${username}`);
                 } else {
                     // 更新上次攻擊時間
@@ -115,8 +112,7 @@ io.on('connection', (socket) => {
 
         } catch (error) {
             // 處理驗證失敗的情況
-            console.log(`[${serverName}] Authentication failed for client: ${error.message}`);
-            socket.emit('authError', { message: 'Invalid token' });
+            socket.emit('authError', ERROR_CODES.INVALID_TOKEN);
             socket.disconnect(); // 驗證失敗後斷開連接
         }
     });

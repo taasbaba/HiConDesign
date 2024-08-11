@@ -29,10 +29,11 @@ if (!instanceServerConfig) {
 
 // 創建 HTTP 伺服器
 const server = http.createServer();
+
 // 初始化 Socket.IO 並應用心跳機制設置
 const io = socketIo(server, {
-    pingInterval: gameServerConfig.pingInterval,  // 讀取 ping 間隔時間
-    pingTimeout: gameServerConfig.pingTimeout     // 讀取 ping 超時時間
+    pingInterval: gameServerConfig.pingInterval || 25000,  // 讀取 ping 間隔時間，若無則設置默認值
+    pingTimeout: gameServerConfig.pingTimeout || 5000      // 讀取 ping 超時時間，若無則設置默認值
 });
 
 // 創建與 Instance Server 的 Socket.IO 客戶端連接
@@ -40,6 +41,9 @@ const instanceServerSocket = socketIoClient.connect(instanceServerConfig.url);
 
 // 秘鑰，用於驗證 JWT token
 const secretKey = crypto.createSecretKey(Buffer.from('your_jwt_secret'));
+
+// 記錄每個用戶的上次攻擊時間
+const lastAttackTime = new Map();
 
 // 當有客戶端連接時執行
 io.on('connection', (socket) => {
@@ -55,24 +59,31 @@ io.on('connection', (socket) => {
             // 從解碼的 token 中提取 username
             const username = decoded.username;
 
-            // 驗證成功後，開始每5秒傳遞 ping/pong 消息
-            const intervalId = setInterval(() => {
-                socket.emit('ping');
-                console.log('Sent: ping');
-            }, 5000);
+            // 監聽客戶端的 attackMonster 事件
+            socket.on('attackMonster', () => {
+                const currentTime = Date.now();
 
-            // 監聽客戶端的 pong 消息
-            socket.on('pong', () => {
-                console.log('Received: pong');
+                // 檢查攻擊間隔時間
+                if (lastAttackTime.has(username) && currentTime - lastAttackTime.get(username) < 1000) {
+                    // 如果間隔時間小於 1 秒，發送錯誤信息
+                    socket.emit('error', {
+                        code: 429, // 常見的 HTTP 429 錯誤碼，表示請求過於頻繁
+                        message: 'Request too frequent'
+                    });
+                    console.log(`Request too frequent from ${username}`);
+                } else {
+                    // 更新上次攻擊時間
+                    lastAttackTime.set(username, currentTime);
 
-                // 通過 Socket.IO 向 Instance Server 發送攻擊請求
-                instanceServerSocket.emit('attack', { username });
-                console.log(`${username} Attack request sent to Instance Server`);
+                    // 通過 Socket.IO 向 Instance Server 發送 attackMonster 事件
+                    instanceServerSocket.emit('attackMonster', { username });
+                    console.log(`${username} Attack request sent to Instance Server`);
+                }
             });
 
-            // 當客戶端斷開連接時清除間隔計時器
+            // 當客戶端斷開連接時清除用戶的上次攻擊時間記錄
             socket.on('disconnect', () => {
-                clearInterval(intervalId);
+                lastAttackTime.delete(username);
                 console.log('Client disconnected from Game Server');
             });
 

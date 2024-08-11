@@ -26,23 +26,30 @@ socket.on('loginSuccess', ({ token, gameServerUrl }) => {
         gameSocket.emit('authenticate', { token });
     });
 
-    // 監聽 ping 消息並回應 pong
-    gameSocket.on('ping', () => {
-        console.log('Received: ping');
-        gameSocket.emit('pong');
-    });
-
     // 處理驗證錯誤
     gameSocket.on('authError', (error) => {
         console.log('Authentication failed:', error.message);
     });
 
+    // 處理 attackMonster 的頻繁發送
+    let attackIntervalId = setInterval(() => {
+        console.log('Sending: attackMonster');
+        gameSocket.emit('attackMonster');
+    }, 500); // 每 500 毫秒發送一次
+
+    // 處理伺服器回應的錯誤
+    gameSocket.on('error', (error) => {
+        if (error.code === 429) { // 處理請求過於頻繁的錯誤
+            console.log('Error:', error.message);
+        }
+    });
+
     // 處理斷開連接
     gameSocket.on('disconnect', () => {
         console.log('Disconnected from Game Server');
+        clearInterval(attackIntervalId); // 在斷開連接時停止發送 attackMonster
     });
 });
-
 
 // 當收到登入失敗的消息時執行
 socket.on('loginError', (error) => {

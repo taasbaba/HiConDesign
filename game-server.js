@@ -48,6 +48,38 @@ const lastAttackTime = new Map();
 // 保存每次攻擊請求的映射，根據 attackId 保存對應的 socket
 const pendingAttacks = new Map();
 
+// 為 Instance Server 註冊事件處理器
+function setupInstanceServerListeners() {
+    instanceServerSocket.on('attackResult', (response) => {
+        const { attackId, hp } = response;
+        const clientSocket = pendingAttacks.get(attackId);
+
+        if (clientSocket) {
+            console.log(`[${serverName}] Received attackResult from Instance Server for ${attackId}, Remaining HP: ${hp}`);
+            clientSocket.emit('attackResult', { hp }); // 將剩餘 HP 回傳給對應的 client
+            pendingAttacks.delete(attackId); // 刪除已處理的攻擊
+        }
+    });
+
+    instanceServerSocket.on('monsterStatus', (data) => {
+        console.log(`[${serverName}] Monster status updated. Remaining HP: ${data.hp}`);
+        io.emit('monsterStatus', data);
+    });
+
+    instanceServerSocket.on('monsterAppeared', (data) => {
+        console.log(`[${serverName}] Monster appeared with HP: ${data.hp}`);
+        io.emit('monsterAppeared', data);
+    });
+
+    instanceServerSocket.on('monsterDied', (data) => {
+        console.log(`[${serverName}] Monster died. Killer: ${data.killer}, Time: ${data.deathTime}`);
+        io.emit('monsterDied', data);
+    });
+}
+
+// 設置 Instance Server 事件監聽器
+setupInstanceServerListeners();
+
 // 當有客戶端連接時執行
 io.on('connection', (socket) => {
 
@@ -87,42 +119,6 @@ io.on('connection', (socket) => {
                     console.log(`[${serverName}] ${username} Attack request sent to Instance Server with attackId: ${attackId}`);
                 }
             });
-
-            // 監聽 Instance Server 的 attackResult 事件
-            if (!instanceServerSocket.listeners('attackResult').length) {
-                instanceServerSocket.on('attackResult', (response) => {
-                    const { attackId, hp } = response;
-                    const clientSocket = pendingAttacks.get(attackId);
-
-                    if (clientSocket) {
-                        console.log(`[${serverName}] Received attackResult from Instance Server for ${attackId}, Remaining HP: ${hp}`);
-                        clientSocket.emit('attackResult', { hp }); // 將剩餘 HP 回傳給對應的 client
-                        pendingAttacks.delete(attackId); // 刪除已處理的攻擊
-                    }
-                });
-            }
-
-            // 監聽 Instance Server 廣播的怪獸事件
-            if (!instanceServerSocket.listeners('monsterStatus').length) {
-                instanceServerSocket.on('monsterStatus', (data) => {
-                    console.log(`[${serverName}] Monster status updated. Remaining HP: ${data.hp}`);
-                    io.emit('monsterStatus', data);
-                });
-            }
-
-            if (!instanceServerSocket.listeners('monsterAppeared').length) {
-                instanceServerSocket.on('monsterAppeared', (data) => {
-                    console.log(`[${serverName}] Monster appeared with HP: ${data.hp}`);
-                    io.emit('monsterAppeared', data);
-                });
-            }
-
-            if (!instanceServerSocket.listeners('monsterDied').length) {
-                instanceServerSocket.on('monsterDied', (data) => {
-                    console.log(`[${serverName}] Monster died. Killer: ${data.killer}, Time: ${data.deathTime}`);
-                    io.emit('monsterDied', data);
-                });
-            }
 
             // 當客戶端斷開連接時清除用戶的上次攻擊時間記錄
             socket.on('disconnect', () => {

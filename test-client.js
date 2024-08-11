@@ -55,21 +55,19 @@ function createBot(username, password) {
         // 處理 attackMonster 的頻繁發送
         let attackIntervalId = setInterval(() => {
             console.log(`${username} Sending: attackMonster`);
-            gameSocket.emit('attackMonster');
+            gameSocket.emit('attackMonster', (result) => {
+                if (result.code === 0) {
+                    // 成功的情況下打印剩餘 HP
+                    console.log(`${username} received attack result: Remaining HP: ${result.hp}`);
+                } else {
+                    // 失敗的情況下打印錯誤代碼和消息，如果 code 未定義，則提供一個默認錯誤消息
+                    const code = result.code !== undefined ? result.code : 'undefined';
+                    const message = result.message || 'No error message provided';
+                    console.log(`${username} received error: Code: ${code}, Message: ${message}`);
+                }
+            });
         }, 500); // 每 500 毫秒發送一次
         attackIntervalIds.push(attackIntervalId);  // 儲存定時器ID
-
-        // 處理伺服器回應的錯誤
-        gameSocket.on('error', (error) => {
-            if (error.code === 429) { // 處理請求過於頻繁的錯誤
-                console.log(`${username} Error:`, error.message);
-            }
-        });
-
-        // 處理來自伺服器的 attackResult
-        gameSocket.on('attackResult', (data) => {
-            console.log(`${username} received attack result: Remaining HP: ${data.hp}`);
-        });
 
         // 監聽怪獸廣播事件
         gameSocket.on('monsterAppeared', (data) => {
@@ -99,7 +97,7 @@ function createBot(username, password) {
     // 當收到登入失敗的消息時執行
     socket.on('loginError', (error) => {
         console.log(`${username} login failed:`, error.message);
-        
+
         // 斷開 Gate Server 的連接
         socket.disconnect();
     });

@@ -45,22 +45,8 @@ const secretKey = crypto.createSecretKey(Buffer.from('your_jwt_secret'));
 // 記錄每個用戶的上次攻擊時間
 const lastAttackTime = new Map();
 
-// 保存每次攻擊請求的映射，根據 attackId 保存對應的 socket
-const pendingAttacks = new Map();
-
 // 為 Instance Server 註冊事件處理器
 function setupInstanceServerListeners() {
-    instanceServerSocket.on('attackResult', (response) => {
-        const { attackId, hp } = response;
-        const clientSocket = pendingAttacks.get(attackId);
-
-        if (clientSocket) {
-            console.log(`[${serverName}] Received attackResult from Instance Server for ${attackId}, Remaining HP: ${hp}`);
-            clientSocket.emit('attackResult', { hp }); // 將剩餘 HP 回傳給對應的 client
-            pendingAttacks.delete(attackId); // 刪除已處理的攻擊
-        }
-    });
-
     instanceServerSocket.on('monsterStatus', (data) => {
         console.log(`[${serverName}] Monster status updated. Remaining HP: ${data.hp}`);
         io.emit('monsterStatus', data);
@@ -92,30 +78,34 @@ io.on('connection', (socket) => {
             console.log(`[${serverName}] Client authenticated: ${username}`, decoded);
 
             // 監聽來自玩家的 attackMonster 事件
-            socket.on('attackMonster', () => {
+            socket.on('attackMonster', (callback) => {
                 const currentTime = Date.now();
-
+            
                 // 檢查攻擊間隔時間
                 if (lastAttackTime.has(username) && currentTime - lastAttackTime.get(username) < 1000) {
-                    // 如果間隔時間小於 1 秒，發送錯誤信息
-                    socket.emit('error', {
+                    // 如果間隔時間小於 1 秒，回傳錯誤信息給 client
+                    const errorResponse = {
                         code: 429, // 常見的 HTTP 429 錯誤碼，表示請求過於頻繁
                         message: 'Request too frequent'
-                    });
+                    };
+                    callback(errorResponse);
                     console.log(`[${serverName}] Request too frequent from ${username}`);
                 } else {
                     // 更新上次攻擊時間
                     lastAttackTime.set(username, currentTime);
-
+            
                     // 生成一個唯一的 attackId 來識別這次攻擊
                     const attackId = crypto.randomUUID();
-
-                    // 保存這次攻擊對應的 socket
-                    pendingAttacks.set(attackId, socket);
-
-                    // 通過 Socket.IO 向 Instance Server 發送 attackMonster 事件
-                    instanceServerSocket.emit('attackMonster', { username, attackId });
-
+            
+                    // 通過 Socket.IO 向 Instance Server 發送 attackMonster 事件，並在回應後直接回傳結果給 client
+                    instanceServerSocket.emit('attackMonster', { username, attackId }, (response) => {
+                        const { hp, code, message } = response;
+                        console.log(`[${serverName}] Received response for username: ${username}, attackId: ${attackId}, Remaining HP: ${hp}, Code: ${code}, Message: ${message}`);
+                        
+                        // 回傳結果給 client
+                        callback({ hp, code, message });
+                    });
+            
                     console.log(`[${serverName}] ${username} Attack request sent to Instance Server with attackId: ${attackId}`);
                 }
             });
